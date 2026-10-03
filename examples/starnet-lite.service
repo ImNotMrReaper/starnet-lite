@@ -1,0 +1,17 @@
+[Unit]
+Description=StarNet Lite (computer door 127.0.0.1:8787 -> StarNet 8786 + helper; device door 0.0.0.0:8788 -> Lite; firewall limits who can reach it)
+After=starnet.service
+Wants=starnet.service
+
+[Service]
+WorkingDirectory=%h/starnet-lite
+ExecStart=/usr/bin/node server.js
+Environment=STARNET=127.0.0.1:8786
+Environment=LITE_LOCAL=127.0.0.1:8787
+Environment=LITE_REMOTE=0.0.0.0:8788
+Environment=LITE_THEME=amber
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,16 @@
+{
+  "name": "starnet-lite",
+  "version": "0.1.0",
+  "description": "StarNet on phones, wall screens and Raspberry Pis — live with the StarNet window on your computer, like Remote Control. Add-on, zero dependencies.",
+  "main": "server.js",
+  "bin": { "starnet-lite": "server.js" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT",
+  "repository": "github:ImNotMrReaper/starnet-lite",
+  "homepage": "https://github.com/ImNotMrReaper/starnet-lite",
+  "keywords": ["starnet", "ai-agents", "mobile", "raspberry-pi", "echo-show", "remote-control"]
+}
