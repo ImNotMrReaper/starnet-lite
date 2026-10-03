@@ -69,12 +69,16 @@ Settings (environment variables):
 | **Comms** | every session, the full conversation, the reply as it is typed, tools the agent is using, send, stop, new session |
 | **Approvals** | cards with the exact command; Deny / hold-to-Allow once / this session / always; questions from agents |
 | **Crew** | who is working or waiting, talk to an agent, approval mode (Ask / hold for Full Power), reach (Safe Cell … This Computer) |
-| **Work** | tasks (add, move), routines, quests, recent runs |
+| **Work** | tasks (add, move), routines, quests, deliverables, loops, recent runs |
+| **System** | autonomy initiative (WAIT · SUGGEST · BUILD · FREE), notifications, abilities, skills, channels, permissions, night shift, version, this device's effects level |
 | **No JavaScript** | `/lite/basic` — crew, runs and approvals as plain forms (Pi Zero, tiny screens, old browsers) |
 | **Computer closed** | read every session, approve/deny scheduled and channel runs; chatting waits until StarNet is open again |
 
 Layouts: phone (portrait), short landscape screens (Echo Show 5 960×480, Pi 7" 800×480), big screens (StarNet's three-column
-floor) and tiny 320×240 / 480×320 Pi LCDs.
+floor with its bottom bar) and tiny 320×240 / 480×320 Pi LCDs.
+
+Still done on the computer for now: recruiting agents, editing the station floor (REFIT), connecting providers/channels and
+editing dossiers. Lite shows their results live.
 
 ## Raspberry Pi kiosk
 

@@ -66,6 +66,10 @@ function renderShell({ csrf, theme, vars, version }) {
         <div class="pb"><ul class="crew" id="crew"></ul>
           <div class="section-t">Sessions</div><ul class="rows" id="sessions"></ul></div></div>
     </section>
+    <section id="v-sys" class="view" aria-label="System">
+      <div class="panel" style="flex:1"><div class="ph"><span class="grow">SYSTEM</span><button class="btn small" id="sys-refresh">⟳</button></div>
+        <div class="pb" id="sys"></div></div>
+    </section>
     <section id="v-work" class="view" aria-label="Work">
       <div class="panel" style="flex:1"><div class="ph"><span class="grow">WORK</span><button class="btn small" id="work-refresh">⟳</button></div>
         <div class="pb" id="work"></div></div>
@@ -73,10 +77,11 @@ function renderShell({ csrf, theme, vars, version }) {
   </main>
   <div id="approvals" aria-live="assertive"></div>
   <nav id="nav" aria-label="Sections">
-    <button data-v="v-map" class="on"><span class="g">⌂</span>STATION</button>
+    <button data-v="v-map" class="on"><span class="g">⌂</span><span class="lbl-station">STATION</span><span class="lbl-floor">FLOOR</span></button>
     <button data-v="v-comms"><span class="g">✉</span>COMMS</button>
     <button data-v="v-crew"><span class="g">☻</span>CREW<span class="badge hidden" id="nav-badge"></span></button>
     <button data-v="v-work"><span class="g">▤</span>WORK</button>
+    <button data-v="v-sys"><span class="g">⚙</span>SYSTEM</button>
   </nav>
   <div id="toast" class="hidden" role="status"></div>
 </div>

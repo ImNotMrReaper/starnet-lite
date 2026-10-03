@@ -1,6 +1,6 @@
 {
   "name": "starnet-lite",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "StarNet on phones, wall screens and Raspberry Pis — live with the StarNet window on your computer, like Remote Control. Add-on, zero dependencies.",
   "main": "server.js",
   "bin": { "starnet-lite": "server.js" },

@@ -40,7 +40,7 @@ function req(port, method, path, { headers = {}, body } = {}) {
 let up, upPort, lite, localPort, remotePort;
 test.before(async () => {
   up = fakeStarnet(); upPort = await listen(up.srv);
-  lite = createLite({ starnet: '127.0.0.1:' + upPort, dataDir: '/nonexistent', log: () => {} });
+  lite = createLite({ starnet: '127.0.0.1:' + upPort, dataDir: '/nonexistent', hostKey: 'a'.repeat(36), log: () => {} });
   localPort = await listen(lite.local); remotePort = await listen(lite.remote);
   await new Promise((r) => setTimeout(r, 300));
 });

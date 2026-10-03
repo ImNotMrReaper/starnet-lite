@@ -30,6 +30,7 @@
         case 'StationUI': return typeof StationUI !== 'undefined' ? StationUI : null;
         case 'World': return typeof World !== 'undefined' ? World : null;
         case 'U': return typeof U !== 'undefined' ? U : null;
+        case 'AutonomyStore': return typeof AutonomyStore !== 'undefined' ? AutonomyStore : null;
       }
     } catch (_) {}
     return null;
@@ -278,6 +279,15 @@
         return { agentId: a.agentId, profile: a.profile };
       });
     },
+    // The Commander's INITIATIVE dial (WAIT · SUGGEST · BUILD · FREE), changed by this window so its save stays the only one.
+    'autonomy.set': function (a) {
+      var ok = ['wait', 'propose', 'leash', 'free'];
+      if (ok.indexOf(a.initiative) < 0) throw new Error('unknown initiative');
+      return Promise.resolve(need('AutonomyStore', 'setInitiative').setInitiative(a.initiative)).then(function (r) {
+        if (r && r.ok === false) throw new Error(r.error || 'StarNet kept the previous setting');
+        return { initiative: a.initiative };
+      });
+    },
     'map.focus': function (a) { var Wd = need('World', 'focusAgent'); Wd.focusAgent(a.agentId); return { focused: a.agentId }; },
     verb: function (a) { return runVerb(String(a.verb || ''), a.args || {}); }
   };
@@ -326,6 +336,8 @@
     es.addEventListener('bye', function () { stopped = true; hostId = null; try { es.close(); } catch (_) {} });
     es.onerror = function () { hostId = null; /* EventSource reconnects by itself; a new hello gives a new id */ };
   }
+  // A refused or dropped stream closes for good in some browsers — reopen it so the link heals on its own.
+  setInterval(function () { if (!stopped && es && es.readyState === 2) { es = null; connect(); } }, 5000);
 
   function boot() {
     if (!ready()) return setTimeout(boot, 700);

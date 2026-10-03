@@ -73,7 +73,7 @@
   }
 
   /* ---------- live connection ---------- */
-  function needMap() { return isWide() || S.view === 'v-map'; }
+  function needMap() { return S.view === 'v-map'; }
   function connect() {
     if (es && esMap === needMap()) return;
     if (es) es.close();
@@ -310,7 +310,7 @@
     var w = $('work');
     w.innerHTML = '<p class="empty">Loading…</p>';
     var tasksP = S.host.connected ? api('verb', { verb: 'station.tasks' }) : Promise.resolve({ ok: false });
-    Promise.all([tasksP, read('cron'), read('runs'), read('quests')]).then(function (r) {
+    Promise.all([tasksP, read('cron'), read('runs'), read('quests'), read('deliverables'), read('loops')]).then(function (r) {
       var html = '';
       html += '<div class="section-t">Tasks</div>';
       if (r[0].ok) {
@@ -329,6 +329,16 @@
       html += '<div class="section-t">Quests</div>';
       var q = r[3].ok && r[3].data, ql = (q && (q.quests || q.active || q.items)) || [];
       html += ql.length ? '<ul class="rows">' + ql.slice(0, 12).map(function (x) { return '<li class="rowi"><span class="grow">' + esc(x.title || x.name || x.id) + '</span><span class="dim">' + esc(x.status || '') + '</span></li>'; }).join('') + '</ul>' : '<p class="empty">No quests.</p>';
+      html += '<div class="section-t">Deliverables</div>';
+      var items = (r[4].ok && r[4].data && r[4].data.items) || [];
+      html += items.length ? '<ul class="rows">' + items.slice(0, 15).map(function (x) {
+        return '<li class="rowi"><span class="grow">' + esc(x.title || x.name || x.path || x.id) + '</span><span class="dim">' + esc(x.kind || '') + ' ' + ago(x.createdAt || x.at) + '</span></li>';
+      }).join('') + '</ul>' : '<p class="empty">Nothing delivered yet.</p>';
+      html += '<div class="section-t">Loops</div>';
+      var loops = (r[5].ok && r[5].data && r[5].data.loops) || [];
+      html += loops.length ? '<ul class="rows">' + loops.map(function (x) {
+        return '<li class="rowi"><span class="grow">' + esc(x.name || x.goal || x.id) + '</span><span class="dim">' + esc(x.state || x.status || '') + '</span></li>';
+      }).join('') + '</ul>' : '<p class="empty">No loops.</p>';
       html += '<div class="section-t">Recent runs</div>';
       var runs = (r[2].ok && r[2].data && r[2].data.runs) || [];
       html += runs.length ? '<ul class="rows">' + runs.slice(0, 25).map(function (x) {
@@ -344,6 +354,66 @@
         e.preventDefault(); var t = $('task-title').value.trim(); if (!t) return;
         api('verb', { verb: 'station.new_task', args: { title: t } }).then(function (x) { if (x.ok) renderWork(); });
       };
+    });
+  }
+
+  /* ---------- system (autonomy, notifications, abilities, channels, permissions, night shift, this device) ---------- */
+  var INIT = [['wait', 'WAIT', 'nothing runs unless you ask'], ['propose', 'SUGGEST', 'lines up suggestions'], ['leash', 'BUILD', 'a few small jobs a day'], ['free', 'FREE', 'runs free toward your goals']];
+  function renderSys() {
+    var el = $('sys');
+    el.innerHTML = '<p class="empty">Loading…</p>';
+    Promise.all([read('posture'), read('events'), read('toolsets'), read('skills'), read('channels'), read('permissions'), read('nightshift'), read('version')]).then(function (r) {
+      var h = '', post = r[0].ok && r[0].data && r[0].data.summary, cur = post && post.initiative;
+      h += '<div class="section-t">Autonomy · initiative</div><div class="seg">' + INIT.map(function (i) {
+        return '<button class="btn small' + (cur === i[0] ? ' on' : '') + '" data-init="' + i[0] + '" title="' + esc(i[2]) + '">' + i[1] + '</button>';
+      }).join('') + '</div><p class="note">' + esc(cur ? (INIT.filter(function (i) { return i[0] === cur; })[0] || [0, 0, cur])[2] : 'unknown') + (post ? ' · reach ' + esc(post.reach) + ' · leash ' + esc(post.leashPerDay) + '/day' : '') + '</p>';
+
+      var ev = (r[1].ok && r[1].data.events) || [];
+      h += '<div class="section-t">Notifications</div>' + (ev.length ? '<ul class="rows">' + ev.slice(0, 20).map(function (e) {
+        var p = e.payload || {};
+        return '<li class="rowi"><span class="grow">' + esc(e.name) + (p.agentId ? ' · ' + esc(crewName(p.agentId)) : '') + (p.title ? ' · ' + esc(p.title) : '') + '</span><span class="dim">' + clock(e.at) + '</span></li>';
+      }).join('') + '</ul>' : '<p class="empty">Nothing new since Lite started.</p>');
+
+      var ts = (r[2].ok && r[2].data && r[2].data.toolsets) || [];
+      h += '<div class="section-t">Abilities</div>' + (ts.length ? '<ul class="rows">' + ts.map(function (t) {
+        var on = t.available || t.enabled;
+        return '<li class="rowi"><span class="grow">' + esc((t.glyph ? t.glyph + ' ' : '') + (t.label || t.id)) + ' <span class="dim">· ' + esc(t.toolCount || 0) + ' tools' + (t.consentGated ? ' · asks' : '') + '</span></span><span class="' + (on ? 'ok' : 'dim') + '">' + (on ? 'ON' : 'OFF') + '</span></li>';
+      }).join('') + '</ul>' : '<p class="empty">—</p>');
+      var sk = (r[3].ok && r[3].data && r[3].data.skills) || [];
+      var skOn = sk.filter(function (k) { return k.enabled; });
+      h += '<p class="note">Skills: ' + skOn.length + ' of ' + sk.length + ' on' + (skOn.length ? ' — ' + esc(skOn.slice(0, 12).map(function (k) { return k.name || k.slug; }).join(', ')) + (skOn.length > 12 ? '…' : '') : '') + '</p>';
+
+      var ch = (r[4].ok && r[4].data) || {};
+      h += '<div class="section-t">Channels</div><ul class="rows">' + Object.keys(ch).filter(function (k) { return ch[k] && typeof ch[k] === 'object' && 'connected' in ch[k]; }).map(function (k) {
+        var c = ch[k];
+        return '<li class="rowi"><span class="grow">' + esc(k.toUpperCase()) + '</span><span class="' + (c.connected ? 'ok' : c.configured ? 'warn' : 'dim') + '">' + (c.connected ? 'CONNECTED' : c.configured ? 'SET UP · OFFLINE' : 'NOT SET UP') + '</span></li>';
+      }).join('') + '</ul>';
+
+      var pm = r[5].ok && r[5].data;
+      h += '<div class="section-t">Permissions</div>' + (pm ? '<ul class="rows">' + (pm.grants || []).map(function (g) {
+        return '<li class="rowi"><span class="grow">' + esc(typeof g === 'string' ? g : (g.key || g.id || JSON.stringify(g))) + '</span></li>';
+      }).join('') + '</ul>' + (pm.masterBypass || pm.envFullAccess ? '<p class="note warn">Full access is switched on for this station.</p>' : '') : '<p class="empty">—</p>');
+
+      var ns = r[6].ok && r[6].data;
+      h += '<div class="section-t">Night shift</div>' + (ns ? '<div class="kv"><span class="k">STATE</span><span>' + (ns.halted ? 'HALTED' : ns.active ? 'ACTIVE' : 'IDLE') + (ns.away ? ' · you are away' : '') + '</span>' +
+        '<span class="k">TODAY</span><span>' + esc(ns.beatsUsedToday || 0) + ' of ' + esc(ns.leashPerDay || 0) + ' jobs</span>' +
+        (ns.focus && ns.focus.label ? '<span class="k">FOCUS</span><span>' + esc(ns.focus.label) + '</span>' : '') + '</div>' : '<p class="empty">—</p>');
+
+      var v = r[7].ok && r[7].data;
+      h += '<div class="section-t">This device</div><div class="seg">' + [['fx-full', 'FULL LOOK'], ['fx-lite', 'LIGHTER'], ['fx-min', 'MINIMAL']].map(function (f) {
+        return '<button class="btn small' + (document.body.className === f[0] ? ' on' : '') + '" data-fx="' + f[0] + '">' + f[1] + '</button>';
+      }).join('') + '</div><p class="note">Lighter / minimal turn the CRT glass and glow down for weak screens. ' +
+        (v ? 'StarNet ' + esc(v.app || v.harness || '') + (v.buildSha ? ' · ' + esc(String(v.buildSha).slice(0, 8)) : '') : '') + ' · <a href="/lite/basic">no-JavaScript version</a></p>';
+      el.innerHTML = h;
+      Array.prototype.forEach.call(el.querySelectorAll('[data-init]'), function (b) {
+        b.onclick = function () {
+          if (!S.host.connected) { toast('Changing autonomy needs StarNet open on the computer', true); return; }
+          api('autonomy.set', { initiative: b.dataset.init }).then(function (x) { if (x.ok) { toast('Initiative → ' + b.textContent); setTimeout(renderSys, 600); } });
+        };
+      });
+      Array.prototype.forEach.call(el.querySelectorAll('[data-fx]'), function (b) {
+        b.onclick = function () { document.body.className = b.dataset.fx; try { localStorage.setItem('lite.fx', b.dataset.fx); } catch (_) {} renderSys(); };
+      });
     });
   }
 
@@ -376,12 +446,14 @@
   $('say').addEventListener('input', grow);
   $('say').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); $('compose').requestSubmit ? $('compose').requestSubmit() : $('compose').onsubmit(e); } });
   $('work-refresh').onclick = renderWork;
+  $('sys-refresh').onclick = renderSys;
 
   function show(v) {
     S.view = v;
     Array.prototype.forEach.call(document.querySelectorAll('.view'), function (x) { x.classList.toggle('on', x.id === v); });
     Array.prototype.forEach.call(document.querySelectorAll('#nav button'), function (b) { b.classList.toggle('on', b.dataset.v === v); });
     if (v === 'v-work') renderWork();
+    if (v === 'v-sys') renderSys();
     if (v === 'v-comms') { var w = $('log-wrap'); w.scrollTop = w.scrollHeight; }
     connect();
   }

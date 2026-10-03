@@ -32,14 +32,15 @@ const VERSION = require('./package.json').version;
 const VERBS = new Set(['station.status', 'station.sessions', 'station.crew', 'station.tasks', 'station.new_task',
   'station.manage_task', 'station.agent_config', 'station.update_agent', 'station.read_session', 'station.layout']);
 const HOST_CMDS = new Set(['chat.send', 'chat.stop', 'session.open', 'session.new', 'session.read', 'agent.select',
-  'agent.approval', 'agent.profile', 'map.focus', 'verb', 'ping']);
+  'agent.approval', 'agent.profile', 'autonomy.set', 'map.focus', 'verb', 'ping']);
 const DECISIONS = new Set(['once', 'session', 'always', 'deny']);   // never 'full' (permanent full access) from a phone
 // Read-only StarNet pages a device may view through Lite (Lite adds the token; the device never sees it).
 const READS = {
   runs: '/api/runs?agent=*&limit=40', cron: '/api/cron', loops: '/api/loops', quests: '/api/quests',
   deliverables: '/api/deliverables', posture: '/api/autonomy/posture', channels: '/api/channels/status',
   version: '/api/version', budget: '/api/budget/status', nightshift: '/api/nightshift/status',
-  permissions: '/api/permissions', toolsets: '/api/toolsets', skills: '/api/skills', projects: '/api/projects'
+  permissions: '/api/permissions', toolsets: '/api/toolsets', skills: '/api/skills', projects: '/api/projects',
+  connectors: '/api/connectors', agentskills: '/api/agent-skills', limits: '/api/limits'
 };
 
 function hostPort(s, defHost) {
@@ -55,7 +56,7 @@ function createLite(opts = {}) {
   const hub = opts.hub || createHub();
   const dataDir = opts.dataDir || process.env.STARNET_DATA || DEFAULT_DATA;
   const themeName = THEMES[opts.theme || process.env.LITE_THEME] ? (opts.theme || process.env.LITE_THEME) : 'amber';
-  const hostKey = crypto.randomBytes(18).toString('hex');
+  const hostKey = opts.hostKey || loadHostKey();
   const log = opts.log || ((m) => process.stdout.write(new Date().toISOString() + ' ' + m + '\n'));
   // Static files are re-read when they change on disk (tiny files; updates apply without a restart).
   const cache = {};
@@ -166,9 +167,14 @@ function createLite(opts = {}) {
     }
     if (p === '/lite/api/read' && req.method === 'GET') {
       const what = url.searchParams.get('what');
+      if (what === 'events') return json(res, 200, { ok: true, data: { events: hub.recentEvents() } });
       if (!Object.prototype.hasOwnProperty.call(READS, what)) return json(res, 400, { ok: false, error: 'unknown page' });
       const r = await client.api('GET', READS[what]);
-      return json(res, 200, r.ok && r.status === 200 ? { ok: true, data: r.json } : { ok: false, error: 'StarNet answered ' + (r.status || 'nothing') });
+      if (!(r.ok && r.status === 200)) return json(res, 200, { ok: false, error: 'StarNet answered ' + (r.status || 'nothing') });
+      let data = r.json;
+      // Devices only need the gist: skill bodies are long documents (74 of them) — never ship those to a phone.
+      if (what === 'skills' && data && Array.isArray(data.skills)) data = { skills: data.skills.map(({ body, ...k }) => k) };
+      return json(res, 200, { ok: true, data });
     }
     // Read-only view of sessions when the StarNet window is closed (from StarNet's saved station).
     if (p === '/lite/api/offline' && req.method === 'GET') return json(res, 200, await offlineView(url.searchParams.get('ws')));
@@ -229,6 +235,17 @@ function createLite(opts = {}) {
   local.on('upgrade', proxy.upgrade);
   const remote = http.createServer(wrap(deviceHandler));
   return { local, remote, hub, client, hostKey, stop() { if (watch) watch.stop(); } };
+}
+
+/* The helper's key survives Lite restarts (kept in ~/.local/state/starnet-lite/host.key, readable only by this
+   account), so updating or restarting Lite never strands the StarNet window that is already open on the computer. */
+function loadHostKey() {
+  const dir = process.env.LITE_STATE || path.join(require('os').homedir(), '.local', 'state', 'starnet-lite');
+  const file = path.join(dir, 'host.key');
+  try { const k = fs.readFileSync(file, 'utf8').trim(); if (/^[a-f0-9]{36}$/.test(k)) return k; } catch (_) {}
+  const k = crypto.randomBytes(18).toString('hex');
+  try { fs.mkdirSync(dir, { recursive: true, mode: 0o700 }); fs.writeFileSync(file, k + '\n', { mode: 0o600 }); } catch (_) {}
+  return k;
 }
 
 // Visible chat lines only — never hidden/internal machine chatter (same filter StarNet's own session tools use).
