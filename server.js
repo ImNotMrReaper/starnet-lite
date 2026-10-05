@@ -88,12 +88,17 @@ function createLite(opts = {}) {
 
   /* ---------- the computer's own StarNet window ---------- */
   const inject = (html) => {
-    const tag = `<script src="/lite/host.js?k=${hostKey}&v=${VERSION}" defer></script>`;
+    const tag = `<script src="/lite/frame-governor.js?v=${VERSION}"></script>` +
+      `<script src="/lite/host.js?k=${hostKey}&v=${VERSION}" defer></script>`;
     return html.includes('</body>') ? html.replace('</body>', tag + '</body>') : html + tag;
   };
 
   async function localHandler(req, res, url) {
     const p = url.pathname;
+    if (p === '/lite/frame-governor.js') {
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(pub('frame-governor.js'));
+    }
     if (p === '/lite/host.js') {
       res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(pub('host.js'));
